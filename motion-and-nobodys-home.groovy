@@ -1,15 +1,10 @@
-/**
- *  Motion detected and two peeps are gone
+/*
+ *  Motion detected and everybody is gone
  *
  *  Author: casey@softwareforgood.com
  *  Date: 2013-03-22
- *  Version: 0.0.1
+ *  Version: 0.0.2
  */
-
-
-//def phoneNumber = '6122076622'
-//def phoneNumber = '6122076622'
-
 
 def preferences() {[
   sections: [
@@ -26,26 +21,14 @@ def preferences() {[
       ]
     ],
     [
-      title: "And person 1 isn't home...",
+      title: "And everybody is away...",
       input: [
         [
-          name: "p1",
-          title: "Which sensor?",
+          name: "presences",
+          title: "Which sensor(s)?",
           type: "capability.presenceSensor",
           description: "Tap to set",
-          multiple: false
-        ]
-      ]
-    ],
-    [
-      title: "And person 2 isn't home...",
-      input: [
-        [
-          name: "p2",
-          title: "Which sensor?",
-          type: "capability.presenceSensor",
-          description: "Tap to set",
-          multiple: false
+          multiple: true
         ]
       ]
     ]
@@ -55,17 +38,20 @@ def preferences() {[
 
 def installed() {
   log.trace "Installed with settings: ${settings}"
-  subscribe(accel.accelerationSensorleration)
-  subscribe(p1.presence)
-  subscribe(p2.presence)
+  subscribe(motion.motion)
+  // handle the list?
+  presences.each { sensor ->
+    subscribe(sensor.presence)
+  }
 }
 
 def updated() {
   log.trace "Updated with settings: ${settings}"
   unsubscribe()
   subscribe(motion.motion)
-  subscribe(p1.presence)
-  subscribe(p2.presence)
+  presences.each { sensor ->
+    subscribe(sensor.presence)
+  }
 }
 
 
@@ -76,26 +62,27 @@ def shouldNotify(sensor) {
   !alreadySent
 }
 
+def present(sensor){
+  sensor.latestValue == 'present'
+}
+def notPresent(sensor){
+  sensor.latestValue == 'not present'
+}
 
-def present(sensor){ sensor.latestValue == "present" }
-def notPresent(sensor) { sensor.latestValue == "not present" }
-
-def allNotPresent(sensor1, sensor2){
-  // I know there is probably a way more terse way terseo do this ... but alas... 
-  // my groovy skills are not quite there... 
-  notPresent(sensor1) && notPresent(sensor2)
+def allNotPresent(sensors){
+  log.info("All Not Present: ${sensors}")
+  sensors.every { notPresent(it) } 
 }
 
 def motion(evt) {
-  log.debug "${motion.name} evt.value: ${evt.value}"
+  log.trace "${motion.name} evt.value: ${evt.value}"
 
   if (evt.value == 'active'){
-    log.info("Motion detected")
-    if (shouldNotify(motion) && allNotPresent(p1, p2)) {
-      log.info " *** ${p1.label} && ${p2.label} not pesent! *** "
-      notifyMe "Motion detected by ${accel.label ?: accel.name} and nobody is home! ${new Date(now())}" 
-    //} else {
-      //log.info "Don't notify ..."
+    log.trace("Motion detected")
+    
+    if (shouldNotify(motion) && allNotPresent(presences)) {
+      log.info " *** ${ presences.collect{ it.name }.join(', ') } not pesent! *** "
+      notifyMe "Motion detected by ${motion.label ?: motion.name} and nobody is home! ${new Date(now())}" 
     }
   }
 }
@@ -105,12 +92,15 @@ def notifyMe(message){
   sendPush(message)
   //sendSms(phoneNumber, message)
   sendSms('6122076622', message)
-  sendSms('6127309391', message)
+  //sendSms('6127309391', message)
 }
 
 
 def presence(evt) {
-  log.info "Presence evt.value: ${evt.value}"
+  log.trace "Presence evt.value: ${evt.value}"
   //noop  
 }
+
+
+
 
