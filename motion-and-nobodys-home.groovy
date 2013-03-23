@@ -19,14 +19,14 @@ def preferences() {[
         [
           name: "motion",
           title: "Where?",
-          type: "capability.accelerationSensor",
+          type: "capability.motionSensor",
           description: "Tap to set",
           multiple: false
         ]
       ]
     ],
     [
-      title: "And you're not home...",
+      title: "And person 1 isn't home...",
       input: [
         [
           name: "p1",
@@ -38,13 +38,13 @@ def preferences() {[
       ]
     ],
     [
-      title: "And you're not home...",
+      title: "And person 2 isn't home...",
       input: [
         [
           name: "p2",
           title: "Which sensor?",
           type: "capability.presenceSensor",
-          description: "Tap to set",title
+          description: "Tap to set",
           multiple: false
         ]
       ]
@@ -52,81 +52,65 @@ def preferences() {[
   ]
 ]}
 
+
 def installed() {
-                                          log.debug "Installed with settings: ${settings}"
-subscribe(accel.accelerationSensorleration)
-subscribe(p1.presence)
-   subscribe(p2.presence)
+  log.trace "Installed with settings: ${settings}"
+  subscribe(accel.accelerationSensorleration)
+  subscribe(p1.presence)
+  subscribe(p2.presence)
 }
 
 def updated() {
-log.debug "Updated with settings: ${settings}"
-unsubscribe()settings
-    subscribe(accel.acceleration)
-subscribe(p1.presence)
-   subscribe(p2.presence)
-
+  log.trace "Updated with settings: ${settings}"
+  unsubscribe()
+  subscribe(motion.motion)
+  subscribe(p1.presence)
+  subscribe(p2.presence)
 }
 
 
 def shouldNotify(sensor) {
-    log.debug "should notify... "
-    def deltaSeconds = 1
-    def timeAgo = new Date(now() - (1000 * deltaSeconds))
-    def recentEvents = sensor.eventsSince(timeAgo)
-    log.trace "Found ${recentEvents?.size() ?: 0} events in the last $deltaSeconds seconds"
-    def alreadySent = recentEvents.count { it.value && it.value == "active" } > 1
-!alreadySent
+  log.trace "should notify? ... "
+  def recentEvents = sensor.eventsSince(new Date(now() - 1000))
+  def alreadySent = recentEvents.count { it.value && it.value == "active" } > 1
+  !alreadySent
 }
 
+
+def present(sensor){ sensor.latestValue == "present" }
+def notPresent(sensor) { sensor.latestValue == "not present" }
 
 def allNotPresent(sensor1, sensor2){
-// I know there is probably a way more terse way terseo do this ... but alas... 
-    // my groovy skills are not quite there... 
-    sensor1.latestValue == "not present" && 
-        sensor2.latestValue == "not present"
+  // I know there is probably a way more terse way terseo do this ... but alas... 
+  // my groovy skills are not quite there... 
+  notPresent(sensor1) && notPresent(sensor2)
 }
 
-def acceleration(evt) {
-    log.debug "${accel.name} evt.value: ${evt.value}"
+def motion(evt) {
+  log.debug "${motion.name} evt.value: ${evt.value}"
 
-if (evt.value == "active") {
-        log.debug   "event is active"
-        
-if (shouldNotify(accel)) {
-            log.info("Motion detected")
-            if (allNotPresent(p1, p2)){
-            log.info " *** ${p1.label} && ${p2.label} not pesent! *** "
-                notifyMe "Motion detected by ${accel.label ?: accel.name} and nobody is home! ${new Date(now())}" 
-            } else {
-                log.info " and somebody is home ... so that's all cool"
-            }
-        } else {
-            log.info "No need to send another message ${new Date(now())}"
-        }
-} else {
+  if (evt.value == 'active'){
+    log.info("Motion detected")
+    if (shouldNotify(motion) && allNotPresent(p1, p2)) {
+      log.info " *** ${p1.label} && ${p2.label} not pesent! *** "
+      notifyMe "Motion detected by ${accel.label ?: accel.name} and nobody is home! ${new Date(now())}" 
+    //} else {
+      //log.info "Don't notify ..."
     }
+  }
 }
 
 def notifyMe(message){
-log.info "Notify Me: ${message}"
-    sendPush(message)
-    //sendSms(phoneNumber, message)
-    sendSms('6122076622', message)
-    sendSms('6127309391', message)
+  log.info "Notify Me: ${message}"
+  sendPush(message)
+  //sendSms(phoneNumber, message)
+  sendSms('6122076622', message)
+  sendSms('6127309391', message)
 }
 
 
 def presence(evt) {
   log.info "Presence evt.value: ${evt.value}"
-  
-    //noop  
-//if  (evt.value == "present") {
-//log.info "${presence.label ?: presence.Notifyame} is present at the ${location}"
-//} else if (evt.value == "not presentsent") {
-//log.info "${presence.label ?: presence.name} has left the     ${location}"
-//} else {
-    //    log.info "Presence evt.value: ${evt.evtvalue}"
-    //}
+  //noop  
 }
 
